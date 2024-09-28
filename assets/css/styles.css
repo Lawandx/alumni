@@ -1,0 +1,170 @@
+/* assets/css/styles.css */
+
+/* ฟอนต์ Sarabun */
+body {
+  font-family: "Sarabun", sans-serif;
+}
+
+/* ส่วนหัว */
+.header {
+  color: rgb(0, 0, 0);
+  padding: 20px;
+  text-align: center;
+}
+
+/* การ์ด */
+.card {
+  margin-bottom: 20px;
+  border-radius: 15px;
+  border: none;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* ส่วนหัวการ์ด */
+.card-header {
+  background-color: #FF8500;
+  color: white;
+  border-radius: 15px 15px 0 0;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* ปุ่มในส่วนหัวการ์ด */
+.card-header .btn {
+  background-color: #918A83;
+  border-color: #918A83;
+  color: white;
+}
+
+.card-header .btn:hover {
+  background-color: #E04D00;
+  border-color: #E04D00;
+}
+
+/* ตาราง */
+.table-responsive {
+  overflow-x: auto;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.table-light th {
+  background-color: #f8f9fa;
+  color: #212529;
+}
+
+.table-light th, .table-striped tbody td {
+  vertical-align: middle;
+  text-align: center;
+}
+
+/* ป้ายชื่อข้อมูล */
+.info-label {
+  font-weight: 600;
+  color: #555;
+}
+
+/* รูปโปรไฟล์ */
+.profile-picture {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 5px solid #FF8500;
+}
+
+/* ปุ่มเพิ่ม */
+.btn-add-education,
+.btn-add-studentaward,
+.btn-add-workexperience,
+.btn-add-awardhistory {
+  background-color: #918A83;
+  border-color: #918A83;
+  color: white;
+}
+
+.btn-add-education:hover,
+.btn-add-studentaward:hover,
+.btn-add-workexperience:hover,
+.btn-add-awardhistory:hover {
+  background-color: #E04D00;
+  border-color: #E04D00;
+}
+
+/* ปุ่มแก้ไข */
+.btn-primary {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+  border-color: #004085;
+}
+
+/* ปุ่มลบ */
+.btn-danger {
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+  border-color: #bd2130;
+}
+
+/* การแสดง Toast */
+.toast-header {
+  font-weight: 600;
+}
+
+.toast-header.bg-success {
+  background-color: #d4edda !important;
+  color: #155724 !important;
+}
+
+.toast-header.bg-danger {
+  background-color: #f8d7da !important;
+  color: #721c24 !important;
+}
+
+.toast-header.bg-info {
+  background-color: #d1ecf1 !important;
+  color: #0c5460 !important;
+}
+
+/* กำหนดความกว้างสำหรับคอลัมน์การกระทำ */
+.action-column {
+  width: 150px; /* กำหนดความกว้างที่เหมาะสม */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .card-header {
+      flex-direction: column;
+      align-items: flex-start;
+  }
+
+  .card-header .btn {
+      margin-top: 10px;
+  }
+
+  .action-column {
+      width: 100px;
+  }
+
+  .profile-picture {
+      width: 120px;
+      height: 120px;
+  }
+
+  /* ลดขนาดฟอนต์และ padding ของตารางเพื่อให้ตารางสามารถแสดงข้อมูลได้ครบถ้วนบนหน้าจอขนาดเล็ก */
+  .table thead th, .table tbody td {
+      font-size: 0.9rem;
+      padding: 0.5rem;
+  }
+}
