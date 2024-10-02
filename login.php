@@ -1,58 +1,80 @@
 <?php
-//login.php
+// login.php
 require 'db_connect.php'; // เรียกใช้ไฟล์เชื่อมต่อฐานข้อมูล
 session_start();
+
+// ฟังก์ชั่นสำหรับการกรองข้อมูล
+function sanitize_input($data) {
+    return htmlspecialchars(stripslashes(trim($data)));
+}
 
 $error_message = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $username = trim($_POST['username'] ?? '');
+    $username = sanitize_input($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
     // ตรวจสอบว่ามี username และ password ที่ส่งเข้ามาหรือไม่
     if (!empty($username) && !empty($password)) {
-        // เตรียมคำสั่ง SQL สำหรับการดึงข้อมูลผู้ใช้
-        $stmt = $pdo->prepare("SELECT * FROM User WHERE username = :username");
-        $stmt->bindParam(':username', $username);
-        $stmt->execute();
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        try {
+            // เตรียมคำสั่ง SQL สำหรับการดึงข้อมูลผู้ใช้
+            $stmt = $pdo->prepare("SELECT * FROM User WHERE username = :username LIMIT 1");
+            $stmt->bindParam(':username', $username, PDO::PARAM_STR);
+            $stmt->execute();
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // ตรวจสอบว่าพบผู้ใช้หรือไม่ และตรวจสอบรหัสผ่าน
-        if ($user && password_verify($password, $user['password_hash'])) {
-            // ตั้งค่า session สำหรับผู้ใช้ที่เข้าสู่ระบบ
-            $_SESSION['user_id'] = $user['user_id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['access_level'] = $user['access_level'];
+            // ตรวจสอบว่าพบผู้ใช้หรือไม่ และตรวจสอบรหัสผ่าน
+            if ($user && password_verify($password, $user['password_hash'])) {
+                // ตั้งค่า session สำหรับผู้ใช้ที่เข้าสู่ระบบ
+                $_SESSION['user_id'] = $user['user_id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['access_level'] = $user['access_level'];
 
-            // เก็บ faculty_id และ faculty_name ใน SESSION ถ้าเป็น faculty
-            if ($user['access_level'] === 'faculty') {
-                $_SESSION['faculty_id'] = $user['faculty_id'];
-                $_SESSION['faculty_name'] = $user['faculty_name'];
-            }
+                // เก็บ faculty_id และ faculty_name ใน SESSION ถ้าเป็น faculty
+                if ($user['access_level'] === 'faculty') {
+                    $_SESSION['faculty_id'] = $user['faculty_id'];
+                    $_SESSION['faculty_name'] = $user['faculty_name'];
+                }
 
-            if ($user['access_level'] === 'department') {
-                $_SESSION['faculty_id'] = $user['faculty_id'];
-                $_SESSION['department_id'] = $user['department_id'];
-                $_SESSION['department_name'] = $user['department_name'];
-            }
+                if ($user['access_level'] === 'department') {
+                    $_SESSION['faculty_id'] = $user['faculty_id'];
+                    $_SESSION['department_id'] = $user['department_id'];
+                    $_SESSION['department_name'] = $user['department_name'];
+                }
 
+                if ($user['access_level'] === 'major') {
+                    $_SESSION['faculty_id'] = $user['faculty_id'];
+                    $_SESSION['department_id'] = $user['department_id'];
+                    $_SESSION['major_id'] = $user['major_id'];
+                }
 
-            // ตรวจสอบระดับการเข้าถึงและเปลี่ยนเส้นทางไปยังหน้าที่เหมาะสม
-            if ($user['access_level'] == 'admin') {
-                header("Location: admin_dashboard.php");
-            } elseif ($user['access_level'] == 'faculty') {
-                header("Location: faculty/faculty_dashboard.php");
-            } elseif ($user['access_level'] == 'department') {
-                header("Location: department/department_dashboard.php");
-            } elseif ($user['access_level'] == 'major') {
-                header("Location: major_dashboard.php");
+                // ตรวจสอบระดับการเข้าถึงและเปลี่ยนเส้นทางไปยังหน้าที่เหมาะสม
+                switch ($user['access_level']) {
+                    case 'admin':
+                        header("Location: admin_dashboard.php");
+                        break;
+                    case 'faculty':
+                        header("Location: faculty/faculty_dashboard.php");
+                        break;
+                    case 'department':
+                        header("Location: department/department_dashboard.php");
+                        break;
+                    case 'major':
+                        header("Location: major/major_dashboard.php");
+                        break;
+                    default:
+                        $error_message = "ระดับการเข้าถึงไม่ถูกต้อง";
+                        break;
+                }
+                exit();
             } else {
-                $error_message = "Access level is not recognized.";
+                // กรณีที่รหัสผ่านไม่ถูกต้องหรือไม่พบผู้ใช้
+                $error_message = "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง";
             }
-            exit();
-        } else {
-            // กรณีที่รหัสผ่านไม่ถูกต้องหรือไม่พบผู้ใช้
-            $error_message = "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง";
+        } catch (PDOException $e) {
+            // บันทึกข้อผิดพลาดลงไฟล์ log แทนการแสดงบนหน้าเว็บ
+            error_log("Database Error: " . $e->getMessage());
+            $error_message = "เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล";
         }
     } else {
         // กรณีที่ฟิลด์ username หรือ password ว่างเปล่า
@@ -144,9 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <!-- Navbar แบบกำหนดเอง -->
     <nav class="navbar navbar-dark">
         <a class="navbar-brand" href="#">
-
             <img src="logo-banner-alumni.png" alt="Logo">
-
         </a>
     </nav>
 

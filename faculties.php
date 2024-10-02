@@ -137,7 +137,7 @@ try {
                     <!-- แก้ไขส่วน faculty-header -->
                     <div class="faculty-header d-flex justify-content-between align-items-center" id="headingFaculty<?= $facultyIndex ?>" data-bs-toggle="collapse" data-bs-target="#collapseFaculty<?= $facultyIndex ?>" aria-expanded="true" aria-controls="collapseFaculty<?= $facultyIndex ?>">
                         <h4 class="mb-0 toggle-header">
-                            <?= htmlspecialchars($faculty['faculty_name']) ?>
+                            คณะ<?= htmlspecialchars($faculty['faculty_name']) ?>
                             <i class="fa-solid fa-chevron-up toggle-icon"></i>
                         </h4>
                         <div>
@@ -166,7 +166,7 @@ try {
                                         <div class="department-card">
                                             <div class="department-header d-flex justify-content-between align-items-center" id="headingDept<?= $facultyIndex ?><?= $deptIndex ?>" data-bs-toggle="collapse" data-bs-target="#collapseDept<?= $facultyIndex ?><?= $deptIndex ?>" aria-expanded="false" aria-controls="collapseDept<?= $facultyIndex ?><?= $deptIndex ?>">
                                                 <h5 class="mb-0 toggle-header">
-                                                    <?= htmlspecialchars($department['department_name']) ?>
+                                                    ภาควิชา<?= htmlspecialchars($department['department_name']) ?>
                                                     <i class="fa-solid fa-chevron-up toggle-icon"></i>
                                                 </h5>
                                                 <div>

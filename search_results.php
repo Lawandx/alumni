@@ -284,9 +284,10 @@ try {
                                 <td class="text-center action-column">
                                     <a href="details.php?id=<?= $row['person_id'] ?>" class="btn btn-info btn-sm"><i class="fas fa-eye"></i> ดู</a>
                                     <!-- ปุ่มลบ -->
-                                    <form method="POST" action="delete_person.php" style="display:inline;" onsubmit="return confirm('คุณแน่ใจหรือไม่ที่จะลบข้อมูลนี้? การกระทำนี้ไม่สามารถกู้คืนได้');">
-                                        <input type="hidden" name="person_id" value="<?= $row['person_id'] ?>">
-                                        <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                    <form method="POST" action="delete_person.php" onsubmit="return confirm('คุณแน่ใจหรือไม่ที่จะลบข้อมูลนี้? การกระทำนี้ไม่สามารถกู้คืนได้');">
+                                        <input type="hidden" name="person_id" value="<?= htmlspecialchars($row['person_id']) ?>">
+                                        <input type="hidden" name="return_url" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']) ?>"> <!-- เก็บ URL ปัจจุบัน -->
+                                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
                                         <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-trash-alt"></i> ลบ</button>
                                     </form>
                                 </td>
@@ -396,7 +397,7 @@ try {
             // ฟังก์ชันในการปิดข้อความแจ้งเตือนหลังจาก 3 วินาที
             var alertElement = document.querySelector('.alert');
             if (alertElement) {
-                setTimeout(function () {
+                setTimeout(function() {
                     var alert = new bootstrap.Alert(alertElement);
                     alert.close();
                 }, 3000); // 3000 มิลลิวินาที = 3 วินาที
