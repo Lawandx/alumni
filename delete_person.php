@@ -2,7 +2,7 @@
 session_start();
 
 // ตรวจสอบว่าผู้ใช้ได้เข้าสู่ระบบแล้วหรือยัง และมีสิทธิ์เป็น admin หรือไม่
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['access_level'], ['admin', 'faculty','department','major'])) {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['access_level'], ['admin', 'faculty', 'department', 'major'])) {
     header("Location: login.php");
     exit();
 }
@@ -42,7 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['person_id']) && isset
     } catch (PDOException $e) {
         // ยกเลิกการทำธุรกรรมในกรณีที่เกิดข้อผิดพลาด
         $pdo->rollBack();
-        echo "เกิดข้อผิดพลาดในการลบข้อมูล: " . htmlspecialchars($e->getMessage());
+        error_log($e->getMessage());
+        echo "เกิดข้อผิดพลาดในการลบข้อมูล โปรดลองใหม่อีกครั้ง";
         exit();
     }
 } else {
@@ -51,5 +52,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['person_id']) && isset
     header("Location: $return_url");
     exit();
 }
-
-?>

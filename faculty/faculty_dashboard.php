@@ -61,7 +61,7 @@ try {
     $stmt->execute([':faculty_id' => $faculty_id]);
     $alumni_count = $stmt->fetch(PDO::FETCH_ASSOC)['alumni_count'];
 
-    // ดึงข้อมูลรางวัลที่ได้รับจากศิษย์เก่าในคณะนี้ (ยังคงนับเพื่อแสดงใน Summary Card)
+    // ดึงข้อมูลรางวัลที่ได้รับจากศิษย์เก่าในคณะนี้ 
     $stmt = $pdo->prepare("
         SELECT COUNT(ah.award_id) AS total_awards
         FROM awardhistory ah

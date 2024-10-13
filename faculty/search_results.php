@@ -52,6 +52,7 @@ $country = isset($_GET['country']) ? trim($_GET['country']) : '';
 $province = isset($_GET['province']) ? intval($_GET['province']) : '';
 $district = isset($_GET['district']) ? intval($_GET['district']) : '';
 $subdistrict = isset($_GET['subdistrict']) ? intval($_GET['subdistrict']) : '';
+$degree_level = isset($_GET['degree_level']) ? $_GET['degree_level'] : '';
 
 // เตรียมพารามิเตอร์สำหรับคำสั่ง SQL
 $params = [];
@@ -70,6 +71,7 @@ SELECT
     edu.student_id, 
     edu.faculty_name, 
     edu.major_name, 
+    edu.degree_level,
     GROUP_CONCAT(DISTINCT sa.student_award_name SEPARATOR ', ') AS student_awards,
     GROUP_CONCAT(DISTINCT ah.award_name SEPARATOR ', ') AS award_histories
 FROM PersonalInfo p 
@@ -109,14 +111,12 @@ if (!empty($major)) {
 }
 
 if (!empty($award)) {
-    // ค้นหาจากทั้งตาราง studentaward และ awardhistory ด้วยชื่อพารามิเตอร์ที่ไม่ซ้ำกัน
     $query .= " AND (sa.student_award_name LIKE :award_sa OR ah.award_name LIKE :award_ah)";
     $params[':award_sa'] = '%' . $award . '%';
     $params[':award_ah'] = '%' . $award . '%';
 }
 
 if (!empty($country)) {
-    // ค้นหาจากทั้งตาราง education และ workexperience ด้วยชื่อพารามิเตอร์ที่ไม่ซ้ำกัน
     $query .= " AND (edu.country LIKE :country_edu OR we.country LIKE :country_we)";
     $params[':country_edu'] = '%' . $country . '%';
     $params[':country_we'] = '%' . $country . '%';
@@ -137,12 +137,17 @@ if (!empty($subdistrict)) {
     $params[':subdistrict'] = $subdistrict;
 }
 
+if (!empty($degree_level)) {
+    $query .= " AND edu.degree_level = :degree_level";
+    $params[':degree_level'] = $degree_level;
+}
+
 // เพิ่มการจัดกลุ่มและจัดเรียงผลลัพธ์ตามชื่อ นามสกุล
 $query .= " 
     GROUP BY p.person_id, p.first_name, p.last_name, 
              prov.name_in_thai, dist.name_in_thai, subd.name_in_thai, 
              edu.country, we.country, edu.student_id, 
-             edu.faculty_name, edu.major_name
+             edu.faculty_name, edu.major_name, edu.degree_level
     ORDER BY p.last_name ASC, p.first_name ASC";
 
 // เตรียมและดำเนินการคำสั่ง SQL
@@ -170,6 +175,8 @@ try {
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 
     <style>
         mark {
@@ -179,6 +186,10 @@ try {
 
         body {
             font-family: "Sarabun", sans-serif;
+        }
+
+        .action-column {
+            white-space: nowrap;
         }
     </style>
 </head>
@@ -214,10 +225,19 @@ try {
                     <input type="text" class="form-control" id="student_id" name="student_id" value="<?= htmlspecialchars($student_id) ?>" placeholder="กรอกรหัสนิสิต">
                 </div>
 
-                <!-- แถวที่ 2: สาขา -->
+                <!-- แถวที่ 2: สาขา, ระดับการศึกษา -->
                 <div class="col-md-6">
                     <label for="major" class="form-label">สาขา</label>
                     <input type="text" class="form-control" id="major" name="major" value="<?= htmlspecialchars($major) ?>" placeholder="กรอกสาขา">
+                </div>
+                <div class="col-md-6">
+                    <label for="degree_level" class="form-label">ระดับการศึกษา</label>
+                    <select class="form-select" id="degree_level" name="degree_level">
+                        <option value="">เลือกระดับการศึกษา</option>
+                        <option value="bachelor" <?= $degree_level == 'bachelor' ? 'selected' : '' ?>>ปริญญาตรี</option>
+                        <option value="master" <?= $degree_level == 'master' ? 'selected' : '' ?>>ปริญญาโท</option>
+                        <option value="doctorate" <?= $degree_level == 'doctorate' ? 'selected' : '' ?>>ปริญญาเอก</option>
+                    </select>
                 </div>
 
                 <!-- แถวที่ 3: รางวัล, ประเทศ -->
@@ -261,7 +281,7 @@ try {
 
         <!-- ตารางแสดงผลลัพธ์การค้นหา -->
         <div>
-            <table class="table table-striped table-bordered table-hover align-middle">
+            <table id="resultsTable" class="table table-striped table-bordered table-hover align-middle">
                 <thead class="table-light">
                     <tr>
                         <th>ชื่อ</th>
@@ -269,6 +289,7 @@ try {
                         <th>รหัสนิสิต</th>
                         <th>คณะ</th>
                         <th>สาขา</th>
+                        <th>ระดับการศึกษา</th>
                         <th>รางวัล (การศึกษา)</th>
                         <th>รางวัล (ประสบการณ์ทำงาน)</th>
                         <th>จังหวัด</th>
@@ -288,6 +309,16 @@ try {
                                 <td><?= highlightSearchTerm(htmlspecialchars($row['student_id']), $student_id) ?></td>
                                 <td><?= htmlspecialchars($row['faculty_name']) ?></td>
                                 <td><?= highlightSearchTerm(htmlspecialchars($row['major_name']), $major) ?></td>
+                                <td>
+                                    <?php
+                                    $degree_map = [
+                                        'bachelor' => 'ปริญญาตรี',
+                                        'master' => 'ปริญญาโท',
+                                        'doctorate' => 'ปริญญาเอก'
+                                    ];
+                                    echo isset($degree_map[$row['degree_level']]) ? $degree_map[$row['degree_level']] : htmlspecialchars($row['degree_level']);
+                                    ?>
+                                </td>
                                 <td><?= highlightSearchTerm(htmlspecialchars($row['student_awards']), $award) ?></td>
                                 <td><?= highlightSearchTerm(htmlspecialchars($row['award_histories']), $award) ?></td>
                                 <td><?= htmlspecialchars($row['province_name']) ?></td>
@@ -297,7 +328,7 @@ try {
                                 <td><?= highlightSearchTerm(htmlspecialchars($row['we_country']), $country) ?></td>
                                 <td class="text-center action-column">
                                     <a href="../details.php?id=<?= $row['person_id'] ?>" class="btn btn-info btn-sm"><i class="fas fa-eye"></i> ดู</a>
-                                    <form method="POST" action="../delete_person.php" onsubmit="return confirm('คุณแน่ใจหรือไม่ที่จะลบข้อมูลนี้? การกระทำนี้ไม่สามารถกู้คืนได้');">
+                                    <form method="POST" action="../delete_person.php" onsubmit="return confirm('คุณแน่ใจหรือไม่ที่จะลบข้อมูลนี้? การกระทำนี้ไม่สามารถกู้คืนได้');" style="display:inline-block;">
                                         <input type="hidden" name="person_id" value="<?= htmlspecialchars($row['person_id']) ?>">
                                         <input type="hidden" name="return_url" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']) ?>"> <!-- เก็บ URL ปัจจุบัน -->
                                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
@@ -307,9 +338,6 @@ try {
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <tr>
-                            <td colspan="13" class="text-center">ไม่พบข้อมูล</td>
-                        </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -318,6 +346,11 @@ try {
 
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery (จำเป็นสำหรับ DataTables) -->
+    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <!-- JavaScript สำหรับดึงข้อมูลพื้นที่และอัพเดตฟอร์ม -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -415,6 +448,16 @@ try {
                     alert.close();
                 }, 3000); // 3000 มิลลิวินาที = 3 วินาที
             }
+
+            // เริ่มต้น DataTable
+            $('#resultsTable').DataTable({
+                "language": {
+                    "url": "https://cdn.datatables.net/plug-ins/1.13.6/i18n/th.json",
+                    "emptyTable": "ไม่พบข้อมูลที่ตรงกับการค้นหา"
+                }
+            });
+
+
         });
     </script>
 </body>

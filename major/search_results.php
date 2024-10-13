@@ -30,18 +30,16 @@ $country = isset($_GET['country']) ? trim($_GET['country']) : '';
 $province = isset($_GET['province']) ? intval($_GET['province']) : '';
 $district = isset($_GET['district']) ? intval($_GET['district']) : '';
 $subdistrict = isset($_GET['subdistrict']) ? intval($_GET['subdistrict']) : '';
+$degree_level = isset($_GET['degree_level']) ? $_GET['degree_level'] : '';
 
-// ดึงข้อมูลสาขาวิชาที่เกี่ยวข้องกับ major ของผู้ใช้
-$majors = [];
-if ($_SESSION['access_level'] === 'major') {
-    $stmtMajors = $pdo->prepare("
-        SELECT major_name 
-        FROM major 
-        WHERE major_id = :major_id
-    ");
-    $stmtMajors->execute([':major_id' => $_SESSION['major_id']]);
-    $majors = $stmtMajors->fetchAll(PDO::FETCH_COLUMN);
-}
+// ดึงข้อมูลสาขาวิชาของผู้ใช้
+$stmtMajors = $pdo->prepare("
+    SELECT major_name 
+    FROM major 
+    WHERE major_id = :major_id
+");
+$stmtMajors->execute([':major_id' => $_SESSION['major_id']]);
+$majors = $stmtMajors->fetchAll(PDO::FETCH_COLUMN);
 
 // เตรียมคำสั่ง SQL สำหรับการดึงข้อมูลตามเงื่อนไขที่เลือก
 $query = "
@@ -57,6 +55,7 @@ SELECT
     edu.student_id, 
     faculty.faculty_name, 
     m.major_name, 
+    edu.degree_level,
     GROUP_CONCAT(DISTINCT sa.student_award_name SEPARATOR ', ') AS student_awards,
     GROUP_CONCAT(DISTINCT ah.award_name SEPARATOR ', ') AS award_histories,
     dept.department_name,
@@ -78,11 +77,9 @@ WHERE 1=1";
 // เตรียมพารามิเตอร์สำหรับคำสั่ง SQL
 $params = [];
 
-// เพิ่มเงื่อนไขให้จำกัดผลลัพธ์เฉพาะสาขาวิชาของ major
-if ($_SESSION['access_level'] === 'major') {
-    $query .= " AND m.major_name = :session_major_name";
-    $params[':session_major_name'] = $majors[0]; // เนื่องจาก major ของผู้ใช้ถูกล็อกไว้แล้ว
-}
+// เพิ่มเงื่อนไขให้จำกัดผลลัพธ์เฉพาะสาขาวิชาของผู้ใช้
+$query .= " AND m.major_name = :session_major_name";
+$params[':session_major_name'] = $majors[0];
 
 // เพิ่มเงื่อนไขการค้นหาตามที่ผู้ใช้กรอก
 if (!empty($first_name)) {
@@ -129,18 +126,22 @@ if (!empty($subdistrict)) {
     $params[':subdistrict'] = $subdistrict;
 }
 
+if (!empty($degree_level)) {
+    $query .= " AND edu.degree_level = :degree_level";
+    $params[':degree_level'] = $degree_level;
+}
+
 // เพิ่มการจัดกลุ่มและจัดเรียงผลลัพธ์ตามชื่อ นามสกุล
 $query .= " 
     GROUP BY p.person_id, p.first_name, p.last_name, 
              prov.name_in_thai, dist.name_in_thai, subd.name_in_thai, 
              edu.country, we.country, edu.student_id, 
-             faculty.faculty_name, edu.major_name, dept.department_name, m.major_name
+             faculty.faculty_name, edu.major_name, edu.degree_level, dept.department_name, m.major_name
     ORDER BY p.last_name ASC, p.first_name ASC";
 
 // เตรียมและดำเนินการคำสั่ง SQL
 $stmt = $pdo->prepare($query);
 
-// ผูกพารามิเตอร์และดำเนินการ
 try {
     $stmt->execute($params);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -154,7 +155,6 @@ try {
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ค้นหาข้อมูลศิษย์เก่า</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -162,6 +162,8 @@ try {
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- Font Awesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 
     <style>
         mark {
@@ -220,7 +222,18 @@ try {
                     <input type="text" class="form-control" id="country" name="country" value="<?= htmlspecialchars($country) ?>" placeholder="กรอกประเทศ">
                 </div>
 
-                <!-- แถวที่ 3: จังหวัด, อำเภอ, ตำบล -->
+                <!-- แถวที่ 3: ระดับการศึกษา -->
+                <div class="col-md-6">
+                    <label for="degree_level" class="form-label">ระดับการศึกษา</label>
+                    <select class="form-select" id="degree_level" name="degree_level">
+                        <option value="">เลือกระดับการศึกษา</option>
+                        <option value="bachelor" <?= $degree_level == 'bachelor' ? 'selected' : '' ?>>ปริญญาตรี</option>
+                        <option value="master" <?= $degree_level == 'master' ? 'selected' : '' ?>>ปริญญาโท</option>
+                        <option value="doctorate" <?= $degree_level == 'doctorate' ? 'selected' : '' ?>>ปริญญาเอก</option>
+                    </select>
+                </div>
+
+                <!-- แถวที่ 4: จังหวัด, อำเภอ, ตำบล -->
                 <div class="col-md-4">
                     <label for="province" class="form-label">จังหวัด</label>
                     <select class="form-select" id="province" name="province">
@@ -251,12 +264,13 @@ try {
 
         <!-- ตารางแสดงผลลัพธ์การค้นหา -->
         <div>
-            <table class="table table-striped table-bordered table-hover align-middle">
+            <table id="resultsTable" class="table table-striped table-bordered table-hover align-middle">
                 <thead class="table-light">
                     <tr>
                         <th>ชื่อ</th>
                         <th>นามสกุล</th>
                         <th>รหัสนิสิต</th>
+                        <th>ระดับการศึกษา</th>
                         <th>คณะ</th>
                         <th>ภาควิชา</th>
                         <th>สาขา</th>
@@ -277,6 +291,16 @@ try {
                                 <td><?= highlightSearchTerm(htmlspecialchars($row['first_name']), $first_name) ?></td>
                                 <td><?= highlightSearchTerm(htmlspecialchars($row['last_name']), $last_name) ?></td>
                                 <td><?= highlightSearchTerm(htmlspecialchars($row['student_id']), $student_id) ?></td>
+                                <td>
+                                    <?php
+                                    $degree_map = [
+                                        'bachelor' => 'ปริญญาตรี',
+                                        'master' => 'ปริญญาโท',
+                                        'doctorate' => 'ปริญญาเอก'
+                                    ];
+                                    echo isset($degree_map[$row['degree_level']]) ? $degree_map[$row['degree_level']] : htmlspecialchars($row['degree_level']);
+                                    ?>
+                                </td>
                                 <td><?= htmlspecialchars($row['faculty_name']) ?></td>
                                 <td><?= htmlspecialchars($row['department_name']) ?></td>
                                 <td><?= htmlspecialchars($row['major_display_name']) ?></td>
@@ -290,7 +314,7 @@ try {
                                 <td class="text-center action-column">
                                     <a href="../details.php?id=<?= $row['person_id'] ?>" class="btn btn-info btn-sm"><i class="fas fa-eye"></i> ดู</a>
                                     <!-- ปุ่มลบ -->
-                                    <form method="POST" action="../delete_person.php" onsubmit="return confirm('คุณแน่ใจหรือไม่ที่จะลบข้อมูลนี้? การกระทำนี้ไม่สามารถกู้คืนได้');">
+                                    <form method="POST" action="../delete_person.php" onsubmit="return confirm('คุณแน่ใจหรือไม่ที่จะลบข้อมูลนี้? การกระทำนี้ไม่สามารถกู้คืนได้');" style="display:inline-block;">
                                         <input type="hidden" name="person_id" value="<?= htmlspecialchars($row['person_id']) ?>">
                                         <input type="hidden" name="return_url" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']) ?>"> <!-- เก็บ URL ปัจจุบัน -->
                                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
@@ -299,10 +323,6 @@ try {
                                 </td>
                             </tr>
                         <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="15" class="text-center">ไม่พบข้อมูล</td>
-                        </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -311,9 +331,22 @@ try {
 
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery (จำเป็นสำหรับ DataTables) -->
+    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <!-- JavaScript สำหรับดึงข้อมูลพื้นที่และอัพเดตฟอร์ม -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        $(document).ready(function() {
+            // เริ่มต้น DataTables พร้อมกำหนดข้อความเมื่อไม่มีข้อมูล
+            $('#resultsTable').DataTable({
+                "language": {
+                    "url": "https://cdn.datatables.net/plug-ins/1.13.6/i18n/th.json",
+                    "emptyTable": "ไม่พบข้อมูลที่ตรงกับการค้นหา"
+                }
+            });
+
             const provinceSelect = document.getElementById('province');
             const districtSelect = document.getElementById('district');
             const subdistrictSelect = document.getElementById('subdistrict');
